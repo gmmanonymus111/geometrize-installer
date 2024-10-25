@@ -6,8 +6,6 @@ branches:
 
 # Note that builds run in the order the images are declared
 image:
-  - Ubuntu2004
-  - macos-bigsur
   - Visual Studio 2019
 
 # Define the build configurations
@@ -16,31 +14,12 @@ environment:
     secure: w1zaTUARBAuhkAKUke5sBvSkVtlDGL8YfQxROzv5oGIynVJImn+KWGFVDxyjQore
 
   matrix:
-    - BUILD_NAME: gcc_linux
-    - BUILD_NAME: clang_osx
-    #- BUILD_NAME: mingw_windows
-    #  QTDIR: C:\Qt\6.2\mingw_64
-    #  MINGW: C:\Qt\Tools\mingw810_64
     - BUILD_NAME: msvc_windows
       QTDIR: C:\Qt\6.2\msvc2019_64
 
 # Exclude invalid build configurations
 matrix:
   exclude:
-    - image: Ubuntu2004
-      BUILD_NAME: mingw_windows
-    - image: Ubuntu2004
-      BUILD_NAME: msvc_windows
-    - image: Ubuntu2004
-      BUILD_NAME: clang_osx
-
-    - image: macos-bigsur
-      BUILD_NAME: mingw_windows
-    - image: macos-bigsur
-      BUILD_NAME: msvc_windows
-    - image: macos-bigsur
-      BUILD_NAME: gcc_linux
-
     - image: Visual Studio 2019
       BUILD_NAME: clang_osx
     - image: Visual Studio 2019
@@ -52,90 +31,6 @@ configuration:
 # Do configuration-specific build steps
 for:
 
-  # Linux GCC
-  - matrix:
-      only:
-        - image: Ubuntu2004
-          BUILD_NAME: gcc_linux
-          
-    install:
-      # Configure CI bot git email/username
-      - git config --global user.name "AppVeyor CI Bot"
-      - git config --global user.email "appveyor@appveyor.org"
-
-      - git submodule update --init --recursive
-      - git submodule update --remote --merge
-
-      # Push the latest versions of the submodules to the repository - note that these Linux builds run first, so other build platforms don't do this step
-      - |
-        if [[ `git status --porcelain` ]]; then
-          git checkout master
-          git add geometrize
-          git commit --message "Build bot updating submodule"
-          git remote rm origin
-          git remote add origin https://${GITHUB_API_KEY}@github.com/Tw1ddle/geometrize-installer.git > /dev/null 2>&1
-          git push origin master
-        fi
-
-      - sudo apt update -qq --yes --force-yes
-      - sudo apt install libgl1-mesa-dev --yes --force-yes # Needed to avoid -lGL linker error
-
-      - export PATH=$HOME/Qt/6.1/gcc_64/bin:$PATH
-
-    before_build:
-      - cd $APPVEYOR_BUILD_FOLDER
-      
-    build_script:
-      - cd $APPVEYOR_BUILD_FOLDER
-
-  # Clang OSX
-  - matrix:
-      only:
-        - image: macos-bigsur
-          BUILD_NAME: clang_osx
-    
-    install:
-      - echo "implement me"
-      
-    before_build:
-      - cd $APPVEYOR_BUILD_FOLDER
-      
-    build_script:
-      - cd $APPVEYOR_BUILD_FOLDER
-  
-  # # Mingw Windows
-  # - matrix:
-      # only:
-        # - image: Visual Studio 2019
-          # BUILD_NAME: mingw_windows
-          
-    # # Get the project submodules
-    # # Set the environment variables and paths to make
-    # install:
-      # - git submodule update --init --recursive
-      # - set PATH=%PATH%;%QTDIR%\bin;%MINGW%\bin
-      # - call "%QTDIR%\bin\qtenv2.bat"
-      # - set make=mingw32-make.exe
-
-    # before_build:
-      # - cd %APPVEYOR_BUILD_FOLDER%
-
-      # # Get the Qt installer framework
-      # - cd scripts
-      # - appveyor_windows_get_ifw.bat
-      # - cd %APPVEYOR_BUILD_FOLDER%
-
-      # # Run qmake
-      # - qmake CONFIG+=%CONFIGURATION% installer.pro
-
-    # # Build the project
-    # build_script:
-      # - cd %APPVEYOR_BUILD_FOLDER%
-      # - '%make%'
-      # - ls -a
-      # - move geometrize_installer.exe geometrize_installer_%APPVEYOR_BUILD_NUMBER%_%APPVEYOR_BUILD_ID%_%BUILD_NAME%_%CONFIGURATION%.exe
-      # - echo geometrize_installer_%APPVEYOR_BUILD_NUMBER%_%APPVEYOR_BUILD_ID%_%BUILD_NAME%_%CONFIGURATION%.exe > __latest
-  
   # Windows MSVC
   - matrix:
       only:
@@ -172,3 +67,9 @@ for:
 
      # set_public: true
      # folder: windows/%BUILD_NAME%
+    after_build:
+      - 7z a build.zip %APPVEYOR_BUILD_FOLDER%\*
+
+    artifacts:
+      - path: build.zip
+        name: Build
